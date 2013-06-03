@@ -16,22 +16,19 @@ module FourChan.Post
 , getPlainTextComment
 ) where
 
-import Debug.Trace (trace)
-
-import Data.JSON2
+import Data.Aeson
+import Data.Aeson.Types
 import Data.Maybe
 import Data.Ratio
-import Data.Typeable
-import qualified Data.Map as M
+import Data.Text (pack)
 
 import Text.Printf
 
 import FourChan.Attachment
 import FourChan.Formatable
-import FourChan.Helpers.Json
 import FourChan.Helpers.Html
 import FourChan.Helpers.Download
-import FourChan.Helpers.String
+import FourChan.Helpers.StringPiece
 
 
 data Post = Post
@@ -48,28 +45,37 @@ data Post = Post
     , getAttachment  :: Maybe Attachment
     } deriving (Eq, Show)
 
-instance Typeable Post where
-    typeOf _ = mkTyConApp (mkTyCon3 "4chan" "FourChan" "Post") []
+instance FromJSON Post where
+    parseJSON o@(Object m) = do
+        let isZero = (==0) :: Int -> Bool
+        op            <- fmap isZero $ m .: pack "resto"
+        postId        <- m .: pack "no"
+        threadId      <- m .: pack "resto"
+        timestamp     <- m .: pack "time"
+        time          <- m .: pack "now"
+        posterName    <- m .:? pack "name"
+        trip          <- m .:? pack "trip"
+        email         <- m .:? pack "email"
+        subject       <- m .:? pack "sub"
+        htmlComment   <- m .:? pack "com"
+        filename      <- m .:? pack "filename" :: Parser (Maybe String)
+        attachment    <- case filename of
+                             Just _  -> fmap Just $ parseJSON o
+                             Nothing -> return Nothing
 
-instance FromJson Post where
-    safeFromJson obj@(JObject m) = Right Post
-        { getPostId      = lkpI "no"
-        , getThreadId    = lkpI "resto"
-        , getTimestamp   = lkpI "time"
-        , isOp           = lkpI "resto" == 0
-        , getTime        = lkpS "now"
-        , getPosterName  = fmap fromJson $ M.lookup "name"  m
-        , getTrip        = fmap fromJson $ M.lookup "trip"  m
-        , getEmail       = fmap fromJson $ M.lookup "email" m
-        , getSubject     = fmap fromJson $ M.lookup "sub"   m
-        , getHtmlComment = fmap fromJson $ M.lookup "com"   m
-        , getAttachment  = M.lookup "filename" m >> return (fromJson obj)
-        }
-        where
-            lkpI = jsonLookup m "Post" :: String -> Int
-            lkpS = jsonLookup m "Post" :: String -> String
-
-    safeFromJson x = mkError x
+        return $ Post
+            { getPostId      = postId
+            , getThreadId    = threadId
+            , getTimestamp   = timestamp
+            , isOp           = op
+            , getTime        = time
+            , getPosterName  = posterName
+            , getTrip        = trip
+            , getEmail       = email
+            , getSubject     = subject
+            , getHtmlComment = htmlComment
+            , getAttachment  = attachment
+            }
 
 instance Formatable Post where
     fchar '#' _ = Just . SameLine . show . getPostId
@@ -81,7 +87,7 @@ instance Formatable Post where
     fchar 's' _ = fmap SameLine . getSubject
     fchar 'h' _ = fmap SameLine . getHtmlComment
     fchar 'c' _ = fmap (MultiLine . lines) . getPlainTextComment
-    {-fchar 'a' fmt = fmap (NestedPieces . format fmt) . getAttachment-}
+    fchar 'a' fmt = fmap (NestedPieces . format fmt) . getAttachment
     fchar '^' _ = fmap (SameLine . show) . filterOp
         where
             filterOp post = if isOp post then Nothing else Just (getThreadId post)

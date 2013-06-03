@@ -1,20 +1,18 @@
 module FourChan.Helpers.Download
 ( download
-, downloadBytes
 ) where
 
-import Data.ByteString (ByteString)
+import Data.Char
+import qualified Data.ByteString.Lazy as BS
 
 import Network.HTTP
 import Network.URI (URI, parseURI)
 
-download :: String -> IO String
-download url = simpleHTTP (getRequest url) >>= getResponseBody
-
-downloadBytes :: String -> IO ByteString
-downloadBytes url = downloadBytes' $ parseURI url
+download :: String -> IO BS.ByteString
+download url = do
+    downloadBytes $ parseURI url
     where
-        downloadBytes' :: Maybe URI -> IO ByteString
-        downloadBytes' (Just uri) =
+        downloadBytes :: Maybe URI -> IO BS.ByteString
+        downloadBytes (Just uri) =
             simpleHTTP (defaultGETRequest_ uri) >>= getResponseBody
-        downloadBytes' Nothing = error $ "Invalid URI: " ++ url
+        downloadBytes Nothing = error $ "Invalid URI: " ++ url

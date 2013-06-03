@@ -22,11 +22,13 @@ module FourChan.Thread
 
 import qualified Control.Monad.Parallel as Parallel
 
+import Data.Aeson
+import Data.Aeson.Types
+import qualified Data.ByteString.Lazy.Char8 as BSC
 import Data.Maybe
-import Data.Ratio
-import Data.Typeable
-import Data.JSON2
 import qualified Data.Map as M
+import Data.Ratio
+import Data.Text (pack)
 
 import Text.Printf (printf)
 
@@ -34,7 +36,6 @@ import FourChan.Post
 import FourChan.Board
 import FourChan.Attachment
 import FourChan.Helpers.Download
-import FourChan.Helpers.Json
 
 
 threadUrl :: String -> Int -> String
@@ -57,34 +58,33 @@ data Thread = Thread
     , gotImageLimit    :: Bool
     } deriving (Eq, Show)
 
-instance Typeable Thread where
-    typeOf _ = mkTyConApp (mkTyCon3 "4chan" "FourChan" "Thread") []
+instance FromJSON Thread where
+    parseJSON (Object m) = do
+        (Object opM:ress) <- m .: pack "posts"
+        (op:replies)   <- m .: pack "posts"
 
-instance FromJson Thread where
-    safeFromJson (JObject m) =
-        case M.lookup "posts" m of
-            Just (JArray (op:replies)) ->
+        numReplies    <- opM .:  pack "replies"  .!= 0
+        numImages     <- opM .:  pack "images"   .!= 0
+        omittedPosts  <- opM .:? pack "omitted_posts"  .!= 0
+        omittedImages <- opM .:? pack "omitted_images" .!= 0
 
-                let JObject opMap = op
-                    lkpI          = jsonLookup opMap "OP" :: String -> Int
-                    lkpDefaultI k = fromJson
-                        (M.findWithDefault (JNumber (0%1)) k opMap) :: Int
-
-                in Right Thread
-                    { getOp            = fromJson op
-                    , getReplies       = map fromJson replies
-                    , getNumReplies    = lkpI "replies"
-                    , getNumImages     = lkpI "images"
-                    , getOmittedPosts  = lkpDefaultI "omitted_posts"
-                    , getOmittedImages = lkpDefaultI "omitted_images"
-                    , isSticky         = lkpDefaultI "sticky" == 1
-                    , isClosed         = lkpDefaultI "closed" == 1
-                    , gotBumpLimit     = lkpI "bumplimit"  == 1
-                    , gotImageLimit    = lkpI "imagelimit" == 1
-                    }
-            x -> mkError x
-
-    safeFromJson x = mkError x
+        let isOne = (==1) :: Int -> Bool
+        sticky        <- fmap isOne $ opM .:? pack "sticky"     .!= 0
+        closed        <- fmap isOne $ opM .:? pack "closed"     .!= 0
+        bumpLimit     <- fmap isOne $ opM .:? pack "bumplimit"  .!= 0
+        imageLimit    <- fmap isOne $ opM .:? pack "imagelimit" .!= 0
+        return $ Thread
+            { getOp            = op
+            , getReplies       = replies
+            , getNumReplies    = numReplies
+            , getNumImages     = numImages
+            , getOmittedPosts  = omittedPosts
+            , getOmittedImages = omittedImages
+            , isSticky         = sticky
+            , isClosed         = closed
+            , gotBumpLimit     = bumpLimit
+            , gotImageLimit    = imageLimit
+            }
 
 
 getPosts :: Thread -> [Post]
@@ -101,20 +101,21 @@ getThreadIndex boardName = do
     fmap concat $ Parallel.mapM getBoardPage [0..getNumPages board -1]
     where
         getBoardPage :: Int -> IO [Thread]
-        getBoardPage = fmap (getPageThreads . safeParseJson) . download . url
-        url :: Int -> String
-        url = boardPageUrl boardName
+        getBoardPage pageNum =
+            let page = download $ boardPageUrl boardName pageNum
+            in  fmap (either err getPageThreads . eitherDecode') page
+        err msg = error $ "Error decoding board page: " ++ msg
+
 
 getThread :: String -> Int -> IO Thread
-getThread boardName threadId = fmap (fromJson . safeParseJson) $ download url
+getThread boardName threadId =
+    let thread = download $ threadUrl boardName threadId
+    in  fmap (either err id . eitherDecode') thread
     where
-        url :: String
-        url = threadUrl boardName threadId
+        err msg = error $ "Error decoding thread: " ++ msg
 
 
-getPageThreads :: Json -> [Thread]
-getPageThreads (JObject m) =
-    case M.lookup "threads" m of
-        Just (JArray a) -> map (fromJson :: Json -> Thread) a
-        x -> error $ "Unknown " ++ show x ++ " in " ++ show m
-getPageThreads x = error $ "getPageThreads: Invalid parameter: " ++ show x
+getPageThreads :: M.Map String [Thread] -> [Thread]
+getPageThreads = maybe err id . M.lookup "threads"
+    where
+        err = error $ "Could not parse board page"

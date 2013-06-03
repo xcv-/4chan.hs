@@ -1,4 +1,4 @@
-module FourChan.Helpers.String where
+module FourChan.Helpers.StringPiece where
 
 import Data.Char
 import Data.Function
@@ -57,27 +57,24 @@ data StringPiece = SameLine String
                  | Break
                  | MultiLine [String]
                  | NestedPieces [StringPiece]
+                 | Column String
+                 | Row String
                  deriving (Eq, Show)
 
 
 piecesLines :: [StringPiece] -> [String]
-piecesLines = map concat . concat . map (transpose . alignAll . flattenLine) . splitLines
+piecesLines ps =
+    let splitted = splitLines $ flatten ps
+    in do
+        line <- splitted
+        let aligned = map (toStrings . alignColumn) $ alignRows line
+        map concat $ transpose $ aligned
 
 
-alignAll :: [[String]] -> [[String]]
-alignAll = alignCols . alignRows
-    where
-        alignRows = align
-        alignCols = map align
+toStrings :: StringPiece -> [String]
+toStrings (SameLine x) = [x]
+toStrings (MultiLine xs) = xs
 
-
-align :: Monoid a => [[a]] -> [[a]]
-align xss =
-    let size = maximum . map length $ xss
-    in  map (`expandTo` size) xss
-    where
-        expandTo :: Monoid a => [a] -> Int -> [a]
-        ys `expandTo` n = ys ++ replicate (n - length ys) mempty
 
 splitLines :: [StringPiece] -> [[StringPiece]]
 splitLines = reverse . map reverse . splitLines' [] []
@@ -93,11 +90,36 @@ splitLines = reverse . map reverse . splitLines' [] []
 
         splitLines' result tmp (x:xs) = splitLines' result (x:tmp) xs
 
-flattenLine :: [StringPiece] -> [[String]]
-flattenLine = flattenLine'
-    where
-        flattenLine' :: [StringPiece] -> [[String]]
-        flattenLine' [] = []
-        flattenLine' (SameLine x : ps) = [x] : flattenLine' ps
-        flattenLine' (MultiLine xs : ps) = xs : flattenLine' ps
-        flattenLine' (NestedPieces nps : ps) = flattenLine' nps ++ flattenLine' ps
+
+flatten :: [StringPiece] -> [StringPiece]
+flatten [] = []
+flatten (NestedPieces ps' : ps) = flatten ps' ++ flatten ps
+flatten (p:ps) = p : flatten ps
+
+
+height :: StringPiece -> Int
+height (SameLine _) = 1
+height Break = 2
+height (MultiLine xs) = length xs
+height (NestedPieces ps) = maximum $ map height ps
+height (Column _) = 0
+
+
+expandTo :: StringPiece -> Int -> StringPiece
+(SameLine x)   `expandTo` h = MultiLine $ x : replicate (h -1) ""
+(MultiLine xs) `expandTo` h = MultiLine $ xs ++ replicate (h - length xs) ""
+(Column x)     `expandTo` h = MultiLine $ replicate h x
+
+
+alignRows :: [StringPiece] -> [StringPiece]
+alignRows ps =
+    let maxHeight = maximum $ map height ps
+    in  map (`expandTo` maxHeight) ps
+
+
+alignColumn :: StringPiece -> StringPiece
+alignColumn p@(SameLine _) = p
+alignColumn p@(MultiLine xs) =
+    let maxWidth = maximum $ map length xs
+    in  MultiLine $ map (\l -> l ++ replicate (maxWidth - length l) ' ') xs
+

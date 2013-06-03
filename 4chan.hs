@@ -5,7 +5,7 @@ import FourChan.Formatable
 import FourChan.Post
 import FourChan.Thread
 import FourChan.Board
-import FourChan.Helpers.String
+import FourChan.Helpers.StringPiece
 
 
 main :: IO ()
