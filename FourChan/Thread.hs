@@ -35,7 +35,9 @@ import Text.Printf (printf)
 import FourChan.Post
 import FourChan.Board
 import FourChan.Attachment
+import FourChan.Formatable
 import FourChan.Helpers.Download
+import FourChan.Helpers.StringPiece
 
 
 threadUrl :: String -> Int -> String
@@ -86,13 +88,33 @@ instance FromJSON Thread where
             , gotImageLimit    = imageLimit
             }
 
+nest fmt = NestedPieces . format fmt
+
+instance Formatable Thread where
+    fchar 'o' fmt = Just . NestedPieces . format fmt . getOp
+    fchar 'r' fmt = Just . NestedPieces . map (nest fmt) . getReplies
+    fchar 'p' fmt = Just . NestedPieces . map (nest fmt) . getPosts
+    fchar 'a' fmt = Just . NestedPieces . map (nest fmt) . getAttachments
+    fchar '#' _ = Just . SameLine . show . getNumReplies
+    fchar 'i' _ = Just . SameLine . show . getNumImages
+    fchar 'P' _ = Just . SameLine . show . getOmittedPosts
+    fchar 'I' _ = Just . SameLine . show . getOmittedImages
+    fchar 's' _ = fmap SameLine . fmtsticky . isSticky
+        where fmtsticky x = if x then Just "[sticky]" else Nothing
+    fchar 'c' _ = fmap SameLine . fmtclosed . isClosed
+        where fmtclosed x = if x then Just "[closed]" else Nothing
+    fchar 'l' _ = fmap SameLine . fmtblimit . gotBumpLimit
+        where fmtblimit x = if x then Just "(reached bump limit)" else Nothing
+    fchar 'L' _ = fmap SameLine . fmtilimit . gotImageLimit
+        where fmtilimit x = if x then Just "(reached image limit)" else Nothing
+    fchar c arg = fcharError c arg
+
 
 getPosts :: Thread -> [Post]
 getPosts thread = getOp thread : getReplies thread
 
 getAttachments :: Thread -> [Attachment]
 getAttachments = catMaybes . map getAttachment . getPosts
-
 
 
 getThreadIndex :: String -> IO [Thread]

@@ -77,19 +77,12 @@ toStrings (MultiLine xs) = xs
 
 
 splitLines :: [StringPiece] -> [[StringPiece]]
-splitLines = reverse . map reverse . splitLines' [] []
+splitLines xs = foldr foldingFn [] xs
     where
-        splitLines' :: [[StringPiece]] -> [StringPiece] -> [StringPiece]
-                       -> [[StringPiece]]
-        splitLines' result tmp [] = tmp : result
-        splitLines' result tmp (Break : xs) = splitLines' (tmp:result) [] xs
-
-        splitLines' result tmp (NestedPieces ys : xs) =
-            let nestSplit = NestedPieces . map NestedPieces . splitLines
-            in  splitLines' result (nestSplit ys : tmp) xs
-
-        splitLines' result tmp (x:xs) = splitLines' result (x:tmp) xs
-
+        foldingFn :: StringPiece -> [[StringPiece]] -> [[StringPiece]]
+        foldingFn Break acc      = [MultiLine [""]] : acc
+        foldingFn x     []       = [[x]]
+        foldingFn x     (a1:acc) = (x:a1) : acc
 
 flatten :: [StringPiece] -> [StringPiece]
 flatten [] = []
@@ -115,7 +108,6 @@ alignRows :: [StringPiece] -> [StringPiece]
 alignRows ps =
     let maxHeight = maximum $ map height ps
     in  map (`expandTo` maxHeight) ps
-
 
 alignColumn :: StringPiece -> StringPiece
 alignColumn p@(SameLine _) = p

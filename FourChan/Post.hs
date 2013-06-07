@@ -16,19 +16,25 @@ module FourChan.Post
 , getPlainTextComment
 ) where
 
+import Control.Applicative
+
 import Data.Aeson
 import Data.Aeson.Types
 import Data.Maybe
 import Data.Ratio
 import Data.Text (pack)
 
-import Text.Printf
+import Text.Printf (printf)
 
 import FourChan.Attachment
 import FourChan.Formatable
 import FourChan.Helpers.Html
 import FourChan.Helpers.Download
 import FourChan.Helpers.StringPiece
+
+
+postLink :: String -> Int -> Int -> String
+postLink = printf "https://boards.4chan.org/%s/res/%d#p%d"
 
 
 data Post = Post
@@ -50,7 +56,7 @@ instance FromJSON Post where
         let isZero = (==0) :: Int -> Bool
         op            <- fmap isZero $ m .: pack "resto"
         postId        <- m .: pack "no"
-        threadId      <- m .: pack "resto"
+        threadId'     <- m .: pack "resto"
         timestamp     <- m .: pack "time"
         time          <- m .: pack "now"
         posterName    <- m .:? pack "name"
@@ -62,6 +68,10 @@ instance FromJSON Post where
         attachment    <- case filename of
                              Just _  -> fmap Just $ parseJSON o
                              Nothing -> return Nothing
+
+        let threadId = if isZero threadId'
+                           then postId
+                           else threadId'
 
         return $ Post
             { getPostId      = postId
@@ -94,8 +104,10 @@ instance Formatable Post where
     fchar 'o' _ = fmap SameLine . opfmt
         where
             opfmt post = if isOp post then Just "[OP]" else Nothing
-    fchar c arg = error $
-        printf "Unknown format specifier '%c' with argument \"%s\"" c arg
+    fchar 'L' board = Just . SameLine . makeLink
+        where
+            makeLink = postLink board <$> getThreadId <*> getPostId
+    fchar c arg = fcharError c arg
 
 
 hasAttachment :: Post -> Bool

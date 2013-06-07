@@ -1,5 +1,7 @@
 module FourChan.Attachment where
 
+import Control.Applicative
+
 import Data.Aeson
 import Data.Aeson.Types
 import Data.Text (pack)
@@ -8,6 +10,10 @@ import Text.Printf (printf)
 
 import FourChan.Formatable
 import FourChan.Helpers.StringPiece
+
+
+attachmentLink :: String -> String -> String -> String
+attachmentLink = printf "https://images.4chan.org/%s/src/%s%s"
 
 
 data Attachment = Attachment
@@ -23,7 +29,7 @@ data Attachment = Attachment
 
 instance FromJSON Attachment where
     parseJSON (Object m) = do
-        renamedFileName <- fmap show (m .: pack "tim" :: Parser Int)
+        renamedFileName <- fmap show (m .: pack "tim" :: Parser Integer)
         fileName        <- m .: pack "filename"
         fileExtension   <- m .: pack "ext"
         fileSize        <- m .: pack "fsize"
@@ -53,6 +59,8 @@ instance Formatable Attachment where
         where fmtFileDeleted att = if isFileDeleted att
                                    then Just "[deleted]"
                                    else Nothing
-    fchar c arg = error $
-        printf "Unknown format specifier '%c' with argument \"%s\"" c arg
+    fchar 'L' board = Just . SameLine . makeLink
+        where
+            makeLink = attachmentLink board <$> getRenamedFileName <*> getFileExtension
+    fchar c arg = fcharError c arg
 

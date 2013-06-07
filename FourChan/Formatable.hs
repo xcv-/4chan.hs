@@ -1,9 +1,18 @@
-module FourChan.Formatable where
+module FourChan.Formatable
+( Formatable
+, fchar
+, fcharError
+, format
+) where
 
+import Control.Applicative
 import Control.Monad
 
 import Data.Char
 import Data.Either
+import Data.List
+
+import Text.Printf
 
 import FourChan.Helpers.StringPiece
 
@@ -11,6 +20,14 @@ import FourChan.Helpers.StringPiece
 class Formatable a where
     {-fhelp :: a -> [(Char,String)]-}
     fchar :: Char -> String -> a -> Maybe StringPiece
+    fcharError :: Char -> String -> a -> Maybe StringPiece
+    fcharError c arg = error $
+        printf "Unknown format specifier '%c' with argument \"%s\"" c arg
+
+
+fmapEither :: (a -> b) -> Either a a -> Either b b
+fmapEither f (Left x)  = Left (f x)
+fmapEither f (Right x) = Right (f x)
 
 
 format :: Formatable a => String -> a -> [StringPiece]
@@ -22,20 +39,25 @@ format' ('%':[]) f = error "Invalid character '%' at the end of the format strin
 format' ('%':s) f = let (item, s') = formatItem s f
                     in case item of
                            Nothing -> Left $ format s' f
-                           Just it -> case format' s' f of
-                                          Right fmtd -> Right $ it : fmtd
-                                          Left  fmtd -> Left  $ it : fmtd
-    where keepSide fn (Right x) = Right (fn x)
-          keepSide fn (Left  x) = Left (fn x)
+                           Just it -> fmapEither (it:) $ format' s' f
 
 format' s f = let (plain, cont) = break (=='%') s
-              in case format' cont f of
-                     Left ps  -> Left  $ SameLine plain : ps
-                     Right ps -> Right $ SameLine plain : ps
+              in fmapEither (SameLine plain :) $ format' cont f
+
 
 formatItem :: Formatable f => String -> f -> (Maybe StringPiece, String)
 formatItem ('%':s) _ = (Just $ SameLine "%", s)
 formatItem ('!':s) _ = (Just Break, s)
+
+formatItem ('(':s) f = let (sep, s') = matchBrace '(' s
+                           fmtSep    = NestedPieces $ format sep f
+                           (x, s'')  = formatItem s' f
+                       in (x >>= formatNested fmtSep, s'')
+    where
+        formatNested :: StringPiece -> StringPiece -> Maybe StringPiece
+        formatNested sep (NestedPieces ps) = let ps' = intersperse sep ps
+                                             in Just $ NestedPieces ps'
+        formatNested _ _ = Nothing
 
 formatItem ('[':s) f = let (fill, s')     = matchBrace '[' s
                            (pre, post)    = splitList "%@" fill

@@ -16,11 +16,12 @@ main = do
                   else return (head args)
 
     case action of
-        "boards"  -> runBoards
-        "board"   -> runBoard
-        "threads" -> runThreads
-        "thread"  -> runThread
-        "fmtpost" -> runFmtPost
+        "boards"    -> runBoards
+        "board"     -> runBoard
+        "threads"   -> runThreads
+        "thread"    -> runThread
+        "fmtpost"   -> runFmtPost
+        "fmtthread" -> runFmtThread
 
 ask :: String -> IO String
 ask question = do
@@ -65,3 +66,12 @@ runFmtPost = do
     let post = head . filter (\p -> getPostId p == postId) . getPosts $ thread
 
     mapM_ putStrLn . piecesLines . format fmt $ post
+
+runFmtThread :: IO ()
+runFmtThread = do
+    board <- ask "Board"
+    threadId <- fmap read $ ask "Thread ID"
+    fmt <- ask "Format"
+
+    thread <- getThread board threadId
+    mapM_ putStrLn . piecesLines . format fmt $ thread
