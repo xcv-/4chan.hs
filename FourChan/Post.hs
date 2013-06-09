@@ -88,25 +88,34 @@ instance FromJSON Post where
             }
 
 instance Formatable Post where
-    fchar '#' _ = Just . SameLine . show . getPostId
-    fchar 'T' _ = Just . SameLine . show . getTimestamp
-    fchar 't' _ = Just . SameLine . getTime
-    fchar 'n' _ = fmap SameLine . getPosterName
-    fchar '$' _ = fmap SameLine . getTrip
-    fchar 'e' _ = fmap SameLine . getEmail
-    fchar 's' _ = fmap SameLine . getSubject
-    fchar 'h' _ = fmap SameLine . getHtmlComment
-    fchar 'c' _ = fmap (MultiLine . lines) . getPlainTextComment
-    fchar 'a' fmt = fmap (NestedPieces . format fmt) . getAttachment
-    fchar '^' _ = fmap (SameLine . show) . filterOp
-        where
-            filterOp post = if isOp post then Nothing else Just (getThreadId post)
-    fchar 'o' _ = fmap SameLine . opfmt
-        where
-            opfmt post = if isOp post then Just "[OP]" else Nothing
-    fchar 'L' board = Just . SameLine . makeLink
-        where
-            makeLink = postLink board <$> getThreadId <*> getPostId
+    fchar '#' _ = return . SameLine . show . getPostId
+    fchar 'T' _ = return . SameLine . show . getTimestamp
+    fchar 't' _ = return . SameLine . getTime
+    fchar 'n' _ = maybe (fail "No name")    (return . SameLine) . getPosterName
+    fchar '$' _ = maybe (fail "No trip")    (return . SameLine) . getTrip
+    fchar 'e' _ = maybe (fail "No email")   (return . SameLine) . getEmail
+    fchar 's' _ = maybe (fail "No subject") (return . SameLine) . getSubject
+    fchar 'h' _ = maybe (fail "No comment") (return . SameLine) . getHtmlComment
+
+    fchar 'c' _ = maybe (fail "No comment") (return . MultiLine . lines) .
+        getPlainTextComment
+
+    fchar 'a' fmt = maybe (fail "No attachment") (return .NestedPieces . format fmt) .
+        getAttachment
+
+    fchar 'L' board = return . SameLine .
+            (postLink board <$> getThreadId <*> getPostId)
+
+    fchar '^' _ = fmap (SameLine . show) .
+            (\post -> if isOp post
+                         then fail "Post is OP"
+                         else return (getThreadId post))
+
+    fchar 'o' _ = fmap SameLine .
+            (\post -> if isOp post
+                         then return "[OP]"
+                         else fail "Post is not OP")
+
     fchar c arg = fcharError c arg
 
 

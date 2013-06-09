@@ -15,4 +15,4 @@ download url = do
         downloadBytes :: Maybe URI -> IO BS.ByteString
         downloadBytes (Just uri) =
             simpleHTTP (defaultGETRequest_ uri) >>= getResponseBody
-        downloadBytes Nothing = error $ "Invalid URI: " ++ url
+        downloadBytes Nothing = fail $ "Invalid URI: " ++ url

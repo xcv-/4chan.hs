@@ -49,17 +49,17 @@ instance FromJSON Attachment where
             }
 
 instance Formatable Attachment where
-    fchar 'r' _ = Just . SameLine . getRenamedFileName
-    fchar 'n' _ = Just . SameLine . getFileName
-    fchar 'e' _ = Just . SameLine . getFileExtension
-    fchar '5' _ = Just . SameLine . getFileMD5
-    fchar 'w' _ = Just . SameLine . show . getImageWidth
-    fchar 'h' _ = Just . SameLine . show . getImageHeight
+    fchar 'r' _ = return . SameLine . getRenamedFileName
+    fchar 'n' _ = return . SameLine . getFileName
+    fchar 'e' _ = return . SameLine . getFileExtension
+    fchar '5' _ = return . SameLine . getFileMD5
+    fchar 'w' _ = return . SameLine . show . getImageWidth
+    fchar 'h' _ = return . SameLine . show . getImageHeight
     fchar 'd' _ = fmap SameLine . fmtFileDeleted
         where fmtFileDeleted att = if isFileDeleted att
-                                   then Just "[deleted]"
-                                   else Nothing
-    fchar 'L' board = Just . SameLine . makeLink
+                                   then return "[deleted]"
+                                   else fail "File does not exist"
+    fchar 'L' board = return . SameLine . makeLink
         where
             makeLink = attachmentLink board <$> getRenamedFileName <*> getFileExtension
     fchar c arg = fcharError c arg

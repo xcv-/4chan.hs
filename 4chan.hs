@@ -1,11 +1,7 @@
 import System.IO
 import System.Environment
 
-import FourChan.Formatable
-import FourChan.Post
-import FourChan.Thread
-import FourChan.Board
-import FourChan.Helpers.StringPiece
+import FourChan
 
 
 main :: IO ()

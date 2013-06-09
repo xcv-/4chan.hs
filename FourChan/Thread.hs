@@ -43,6 +43,10 @@ import FourChan.Helpers.StringPiece
 threadUrl :: String -> Int -> String
 threadUrl = printf "http://api.4chan.org/%s/res/%d.json"
 
+threadLink :: String -> Int -> String
+threadLink = printf "https://boards.4chan.org/%s/res/%d"
+
+
 boardPageUrl :: String -> Int -> String
 boardPageUrl = printf "http://api.4chan.org/%s/%d.json"
 
@@ -88,25 +92,43 @@ instance FromJSON Thread where
             , gotImageLimit    = imageLimit
             }
 
+
+nest :: Formatable f => String -> f -> StringPiece
 nest fmt = NestedPieces . format fmt
 
 instance Formatable Thread where
-    fchar 'o' fmt = Just . NestedPieces . format fmt . getOp
-    fchar 'r' fmt = Just . NestedPieces . map (nest fmt) . getReplies
-    fchar 'p' fmt = Just . NestedPieces . map (nest fmt) . getPosts
-    fchar 'a' fmt = Just . NestedPieces . map (nest fmt) . getAttachments
-    fchar '#' _ = Just . SameLine . show . getNumReplies
-    fchar 'i' _ = Just . SameLine . show . getNumImages
-    fchar 'P' _ = Just . SameLine . show . getOmittedPosts
-    fchar 'I' _ = Just . SameLine . show . getOmittedImages
-    fchar 's' _ = fmap SameLine . fmtsticky . isSticky
-        where fmtsticky x = if x then Just "[sticky]" else Nothing
-    fchar 'c' _ = fmap SameLine . fmtclosed . isClosed
-        where fmtclosed x = if x then Just "[closed]" else Nothing
-    fchar 'l' _ = fmap SameLine . fmtblimit . gotBumpLimit
-        where fmtblimit x = if x then Just "(reached bump limit)" else Nothing
-    fchar 'L' _ = fmap SameLine . fmtilimit . gotImageLimit
-        where fmtilimit x = if x then Just "(reached image limit)" else Nothing
+    fchar '#' _ = return . SameLine . show . getNumReplies
+    fchar 'i' _ = return . SameLine . show . getNumImages
+    fchar 'P' _ = return . SameLine . show . getOmittedPosts
+    fchar 'I' _ = return . SameLine . show . getOmittedImages
+
+    fchar 'o' fmt = return . NestedPieces . format fmt . getOp
+    fchar 'r' fmt = return . NestedPieces . map (nest fmt) . getReplies
+    fchar 'p' fmt = return . NestedPieces . map (nest fmt) . getPosts
+    fchar 'a' fmt = return . NestedPieces . map (nest fmt) . getAttachments
+
+    fchar 's' _ = fmap SameLine .
+        (\sticky -> if sticky
+                        then return "[sticky]"
+                        else fail "Not sticky") . isSticky
+
+    fchar 'c' _ = fmap SameLine .
+        (\closed -> if closed
+                        then return "[closed]"
+                        else fail "Not closed") . isClosed
+
+    fchar 'B' _ = fmap SameLine .
+        (\blimit -> if blimit
+                        then return "(reached bump limit)"
+                        else fail "Bump limit not reached") . gotBumpLimit
+
+    fchar 'l' _ = fmap SameLine .
+        (\ilimit -> if ilimit
+                        then return "(reached image limit)"
+                        else fail "Image limit not reached") . gotImageLimit
+
+    fchar 'L' board = return . SameLine .  threadLink board . getThreadId . getOp
+
     fchar c arg = fcharError c arg
 
 
