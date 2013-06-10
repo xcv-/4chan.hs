@@ -8,8 +8,8 @@ import Data.Text (pack)
 
 import Text.Printf (printf)
 
-import FourChan.Formatable
-import FourChan.Helpers.StringPiece
+import FourChan.Format.Formatable
+import FourChan.Format.StringPiece
 
 
 attachmentLink :: String -> String -> String -> String

@@ -27,10 +27,10 @@ import Data.Text (pack)
 import Text.Printf (printf)
 
 import FourChan.Attachment
-import FourChan.Formatable
+import FourChan.Format.Formatable
+import FourChan.Format.StringPiece
 import FourChan.Helpers.Html
 import FourChan.Helpers.Download
-import FourChan.Helpers.StringPiece
 
 
 postLink :: String -> Int -> Int -> String

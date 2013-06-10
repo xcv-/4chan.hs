@@ -2,7 +2,7 @@
 --  see http://haskell.org/cabal/users-guide/
 
 name:                4chan
-version:             0.1.0.0
+version:             0.1.1.0
 synopsis:            A 4chan library and client
 -- description:
 homepage:            github.com/xcv-/4chan.hs
@@ -15,8 +15,24 @@ author:              xcv
 build-type:          Simple
 cabal-version:       >=1.8
 
+library
+  exposed-modules:     FourChan, FourChan.Attachment, FourChan.Post, FourChan.Thread, FourChan.Board,
+                       FourChan.Filters,
+                       FourChan.Format, FourChan.Format.Formatable, FourChan.Format.StringPiece
+  other-modules:       FourChan.Helpers, FourChan.Helpers.Download, FourChan.Helpers.Html
+  hs-source-dirs:      lib
+  build-depends:       base ==4.6.*, regex-pcre ==0.94.*, mtl ==2.1.*, containers ==0.5.*, aeson ==0.6.*, text ==0.11.*, monad-parallel ==0.7.*, bytestring ==0.10.*, HTTP ==4000.2.*, network ==2.4.*, tagsoup ==0.12.*, hashable >=1.2.0.8
+
 executable 4chan
   main-is:             4chan.hs
+  hs-source-dirs:      progs
   ghc-options:         -O2
+  build-depends:       base ==4.6.*, 4chan -any
   -- other-modules:
-  build-depends:       base ==4.6.*, regex-pcre ==0.94.*, mtl ==2.1.*, containers ==0.5.*, aeson ==0.6.*, text ==0.11.*, monad-parallel ==0.7.*, bytestring ==0.10.*, HTTP ==4000.2.*, network ==2.4.*, tagsoup ==0.12.*, hashable >=1.2.0.8
+
+executable find-dpt
+  main-is:             findDpt.hs
+  hs-source-dirs:      progs
+  ghc-options:         -O2
+  build-depends:       base ==4.6.*, 4chan -any
+  -- other-modules:

@@ -1,4 +1,4 @@
-module FourChan.Helpers.StringPiece where
+module FourChan.Format.StringPiece where
 
 import Data.Char
 import Data.Function

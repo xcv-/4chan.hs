@@ -35,9 +35,9 @@ import Text.Printf (printf)
 import FourChan.Post
 import FourChan.Board
 import FourChan.Attachment
-import FourChan.Formatable
+import FourChan.Format.Formatable
+import FourChan.Format.StringPiece
 import FourChan.Helpers.Download
-import FourChan.Helpers.StringPiece
 
 
 threadUrl :: String -> Int -> String

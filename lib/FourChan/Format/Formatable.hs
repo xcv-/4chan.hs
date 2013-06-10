@@ -1,4 +1,4 @@
-module FourChan.Formatable
+module FourChan.Format.Formatable
 ( Formatable
 , fchar
 , fcharError
@@ -17,7 +17,7 @@ import Data.List
 
 import Text.Printf
 
-import FourChan.Helpers.StringPiece
+import FourChan.Format.StringPiece
 
 
 class Formatable a where
